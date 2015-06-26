@@ -1,7 +1,6 @@
 <?php
 
-function getService($service_account_email, $key_file_location)
-{
+function getService($service_account_email, $key_file_location) {
   // Creates and returns the Analytics service object.
 
   // Load the Google API PHP Client Library.
@@ -132,7 +131,6 @@ function getTotalEvents(&$analytics, $profileId, $options = array()) {
     $metrics,
     $params
   );
-
 }
 
 function info($string) {
@@ -145,7 +143,7 @@ function error($string) {
 
 function prepareFilename($configFile, $outputFormat) {
   $n = explode(".", $configFile);
-  return $n[0].'--'.date("Y-m-d_His").'.'.$outputFormat;
+  return $n[0].'.'.$outputFormat;
 }
 
 function saveCSV($filename, $contentArray, $header) {
