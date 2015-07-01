@@ -87,6 +87,7 @@ function parseConfig($configFile) {
     'filterEventAction' => $config['filterEventAction'],
     'filterEventLabel' => $config['filterEventLabel'],
     'outputFormat' => (array_key_exists('outputFormat', $config) && $config['outputFormat']) ? $config['outputFormat'] : 'print',
+    'outputDirectory' => (array_key_exists('outputDirectory', $config) && $config['outputDirectory']) ? $config['outputDirectory'] : 'output',
   );
   if ($result['outputFormat'] == 'abba') {
     $result['intervalConfidenceLevel'] = (array_key_exists('intervalConfidenceLevel', $config) && $config['intervalConfidenceLevel']) ? $config['intervalConfidenceLevel'] : 0.95;
@@ -146,10 +147,14 @@ function prepareFilename($configFile, $outputFormat) {
   return $n[0].'.'.$outputFormat;
 }
 
-function saveCSV($filename, $contentArray, $header) {
-  $outputFolder = 'output';
+function prepareFilenameList($configFile) {
+  $n = explode(".", $configFile);
+  return $n[0].'.list.json';
+}
+
+function saveCSV($filename, $outputDirectory, $contentArray, $header) {
   $delimiter = ';';
-  $fp = fopen($outputFolder.'/'.$filename, 'x');
+  $fp = fopen($outputDirectory.'/'.$filename, 'w');
   fputcsv($fp, $header, $delimiter);
   foreach ($contentArray as $row) {
     fputcsv($fp, $row, $delimiter);
@@ -158,9 +163,8 @@ function saveCSV($filename, $contentArray, $header) {
   return true;
 }
 
-function saveJSON($filename, $content) {
-  $outputFolder = 'output';
-  $fp = fopen($outputFolder.'/'.$filename, 'x');
+function saveJSON($filename, $outputDirectory, $content) {
+  $fp = fopen($outputDirectory.'/'.$filename, 'w');
   fwrite($fp, $content);
   fclose($fp);
   return true;
@@ -174,6 +178,7 @@ $analytics = getService($config['emailAddress'], $config['keyFileLocation']);
 $profile = getFirstProfileId($analytics);
 $events = getTotalEvents($analytics, $profile, $config);
 $profileName = $events->getProfileInfo()->getProfileName();
+$dateFetching = date('Y-m-d H:i:s');
 echo info("VIEW: ".$profileName."\n");
 echo info("OUTPUT: ".$config['outputFormat']."\n");
 
@@ -211,7 +216,7 @@ switch ($config['outputFormat']) {
   
   case 'csv':
     $filename = prepareFilename($configFile, $config['outputFormat']);
-    if (saveCSV($filename, $rowsKeys, $headers)) {
+    if (saveCSV($filename, $config['outputDirectory'], $rowsKeys, $headers)) {
       echo info("Saved to file ".$filename."\n");
     }
     break;
@@ -269,9 +274,41 @@ switch ($config['outputFormat']) {
 
     $json = json_encode($rowsJSON);
     $filename = prepareFilename($configFile, $config['outputFormat']);
-    if (saveJSON($filename, $json)) {
-      echo info("Saved to file ".$filename."\n");
+    if (saveJSON($filename, $config['outputDirectory'], $json)) {
+      echo info("Saved data to file ".$filename."\n");
     }
+
+    // list of experiments
+    $listExperiments = array();
+    $listExperimentsFinal = array();
+    
+    foreach ($experiments as $c => $ae) {
+      foreach ($ae as $e) {
+        $listExperiments[$e]['name'] = $e;
+        $listExperiments[$e]['dateFetching'] = $dateFetching;
+        $listExperiments[$e]['categories'][$c] = $c;
+      }
+    }
+
+    $ie = 0;
+    if (is_array($listExperiments) && count($listExperiments) > 0) {
+      foreach ($listExperiments as $e => $exp) {
+        $listExperimentsFinal[$ie]['name'] = $e;
+        $listExperimentsFinal[$ie]['dateFetching'] = $exp['dateFetching'];
+        $listExperimentsFinal[$ie]['dataFile'] = $filename;
+        foreach ($exp['categories'] as $c) { 
+          $listExperimentsFinal[$ie]['categories'][] = $c;
+        }
+        $ie++;
+      }
+    }
+    
+    $json = json_encode($listExperimentsFinal);
+    $filenameList = prepareFilenameList($configFile);
+    if (saveJSON($filenameList, $config['outputDirectory'], $json)) {
+      echo info("Saved list of experiments to file ".$filenameList."\n");
+    }
+
     break;
     
   case 'abba':
@@ -304,7 +341,7 @@ switch ($config['outputFormat']) {
     $abba['data'] = $rowsABBA;
     $json = json_encode($abba);
     $filename = prepareFilename($configFile, $config['outputFormat']);
-    if (saveJSON($filename, $json)) {
+    if (saveJSON($filename, $config['outputDirectory'], $json)) {
       echo info("Saved to file ".$filename."\n");
     }
     break;
